@@ -7,7 +7,14 @@ endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-project(chess)
+project(chess LANGUAGES C ASM)
 
-add_executable(chess src/main.c src/terminal.c src/chess.c)
+add_executable(chess
+    src/generator.s
+    src/main.c
+    src/input.c
+    src/chess.c
+    src/engine.c
+    src/hashmap.c
+)
 target_include_directories(chess PRIVATE include/)

@@ -1,18 +1,25 @@
 #ifndef CHESS_H
 #define CHESS_H
 
-#define PIECE_BISHOP_WHITE 'b'
-#define PIECE_BISHOP_BLACK 'B'
-#define PIECE_KNIGHT_WHITE 'n'
-#define PIECE_KNIGHT_BLACK 'N'
-#define PIECE_ROOK_WHITE 'r'
-#define PIECE_ROOK_BLACK 'R'
-#define PIECE_QUEEN_WHITE 'q'
-#define PIECE_QUEEN_BLACK 'Q'
-#define PIECE_KING_WHITE 'k'
-#define PIECE_KING_BLACK 'K'
-#define PIECE_PAWN_WHITE 'p'
-#define PIECE_PAWN_BLACK 'P'
+#define PIECE_EMPTY 0
+#define PIECE_BISHOP_WHITE 2
+#define PIECE_BISHOP_BLACK 3
+#define PIECE_KNIGHT_WHITE 4
+#define PIECE_KNIGHT_BLACK 5
+#define PIECE_ROOK_WHITE 6
+#define PIECE_ROOK_BLACK 7
+#define PIECE_QUEEN_WHITE 8
+#define PIECE_QUEEN_BLACK 9
+#define PIECE_KING_WHITE 10
+#define PIECE_KING_BLACK 11
+#define PIECE_PAWN_WHITE 12
+#define PIECE_PAWN_BLACK 13
+
+#define COLOR_FLAG (1 << 6)
+
+#ifndef CHESS_FLIP_DISPLAY_COLORS
+#define CHESS_FLIP_DISPLAY_COLORS 1
+#endif
 
 typedef struct ChessState {
   char pieces[64];
@@ -23,10 +30,13 @@ typedef struct ChessMove {
   char end;
 } ChessMove;
 
+char piece_from_alphabetic(char piece);
 ChessState initboard();
 void printboard(ChessState *state, char show_moves_from);
-char parsemove(ChessMove *move, char *str_move);
 void makemove(ChessState *state, ChessMove move);
 char validatemove(ChessState *state, ChessMove move);
+ChessMove *list_valid_moves(ChessState *state, char color);
+char check2mate(ChessState *state, char color);
+char checkking(ChessState *state, char color);
 
 #endif

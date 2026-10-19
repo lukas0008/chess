@@ -1,27 +1,59 @@
 #include "chess.h"
+#include "dynarray.h"
+#include "generator.h"
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
-char is_abc_move_worthy(char c) { return c >= 'a' && c <= 'h'; }
-char is_num_move_worthy(char c) { return c >= '1' && c <= '8'; }
-char is_move_worthy(char c[2]) {
-  return is_abc_move_worthy(c[0]) && is_num_move_worthy(c[1]);
+char piece_from_alphabetic(char piece) {
+  switch (piece) {
+  case 'B':
+    return PIECE_BISHOP_WHITE;
+  case 'b':
+    return PIECE_BISHOP_BLACK;
+  case 'N':
+    return PIECE_KNIGHT_WHITE;
+  case 'n':
+    return PIECE_KNIGHT_BLACK;
+  case 'R':
+    return PIECE_ROOK_WHITE;
+  case 'r':
+    return PIECE_ROOK_BLACK;
+  case 'Q':
+    return PIECE_QUEEN_WHITE;
+  case 'q':
+    return PIECE_QUEEN_BLACK;
+  case 'K':
+    return PIECE_KING_WHITE;
+  case 'k':
+    return PIECE_KING_BLACK;
+  case 'P':
+    return PIECE_PAWN_WHITE;
+  case 'p':
+    return PIECE_PAWN_BLACK;
+  case ' ':
+    return PIECE_EMPTY;
+  default:
+    return -1;
+  }
 }
 
 ChessState initboard() {
   ChessState state = {
       // clang-format off
       .pieces = {
-      'r', 'b', 'n', 'q', 'k', 'b', 'n', 'r',
-      'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p',
-      ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-      ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-      ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-      ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+      'R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R',
       'P', 'P', 'P', 'P', 'P', 'P', 'P', 'P',
-      'R', 'B', 'N', 'Q', 'K', 'B', 'N', 'R',
+      ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+      ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+      ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+      ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+      'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p',
+      'r', 'n', 'b', 'q', 'k', 'b', 'n', 'r',
       }};
+  foreach(range(0, 64), i) {
+    state.pieces[(size_t)i] = piece_from_alphabetic(state.pieces[(size_t)i]);
+  }
   // clang-format on
   return state;
 }
@@ -47,43 +79,43 @@ void printboard(ChessState *state, char from_pos) {
     for (int j = 0; j < 8; j++) {
       char *display_char = "";
       switch (state->pieces[i * 8 + j]) {
-      case 'K':
-        display_char = "♔";
+      case PIECE_KING_WHITE:
+        display_char = CHESS_FLIP_DISPLAY_COLORS ? "♚" : "♔";
         break;
-      case 'Q':
-        display_char = "♕";
+      case PIECE_QUEEN_WHITE:
+        display_char = CHESS_FLIP_DISPLAY_COLORS ? "♛" : "♕";
         break;
-      case 'R':
-        display_char = "♖";
+      case PIECE_ROOK_WHITE:
+        display_char = CHESS_FLIP_DISPLAY_COLORS ? "♜" : "♖";
         break;
-      case 'B':
-        display_char = "♗";
+      case PIECE_BISHOP_WHITE:
+        display_char = CHESS_FLIP_DISPLAY_COLORS ? "♝" : "♗";
         break;
-      case 'N':
-        display_char = "♘";
+      case PIECE_KNIGHT_WHITE:
+        display_char = CHESS_FLIP_DISPLAY_COLORS ? "♞" : "♘";
         break;
-      case 'P':
-        display_char = "♙";
+      case PIECE_PAWN_WHITE:
+        display_char = CHESS_FLIP_DISPLAY_COLORS ? "♟" : "♙";
         break;
-      case 'k':
-        display_char = "♚";
+      case PIECE_KING_BLACK:
+        display_char = CHESS_FLIP_DISPLAY_COLORS ? "♔" : "♚";
         break;
-      case 'q':
-        display_char = "♛";
+      case PIECE_QUEEN_BLACK:
+        display_char = CHESS_FLIP_DISPLAY_COLORS ? "♕" : "♛";
         break;
-      case 'r':
-        display_char = "♜";
+      case PIECE_ROOK_BLACK:
+        display_char = CHESS_FLIP_DISPLAY_COLORS ? "♖" : "♜";
         break;
-      case 'b':
-        display_char = "♝";
+      case PIECE_BISHOP_BLACK:
+        display_char = CHESS_FLIP_DISPLAY_COLORS ? "♗" : "♝";
         break;
-      case 'n':
-        display_char = "♞";
+      case PIECE_KNIGHT_BLACK:
+        display_char = CHESS_FLIP_DISPLAY_COLORS ? "♘" : "♞";
         break;
-      case 'p':
-        display_char = "♟";
+      case PIECE_PAWN_BLACK:
+        display_char = CHESS_FLIP_DISPLAY_COLORS ? "♙" : "♟";
         break;
-      case ' ':
+      case PIECE_EMPTY:
         display_char = " ";
         break;
       default:
@@ -106,35 +138,12 @@ void printboard(ChessState *state, char from_pos) {
   }
 }
 
-char parsemove(ChessMove *move, char *str_move) {
-  size_t str_len = strlen(str_move);
-  if (str_len < 2 || str_len > 5) {
-    return -1;
-  }
-
-  char offset = str_len == 5;
-  if (!is_move_worthy(str_move)) {
-    return -2;
-  }
-
-  char start = str_move[0] - 'a' + (str_move[1] - '1') * 8;
-  if (str_len < 4 || !is_move_worthy(&str_move[2 + offset])) {
-    return start;
-  }
-  char end = str_move[2 + offset] - 'a' + (str_move[3 + offset] - '1') * 8;
-
-  move->start = start;
-  move->end = end;
-
-  return 0;
-}
-
 void makemove(ChessState *state, ChessMove move) {
   // state->pieces[move.start] ^= state->pieces[move.end];
   // state->pieces[move.end] ^= state->pieces[move.start];
   // state->pieces[move.start] ^= state->pieces[move.end];
   state->pieces[move.end] = state->pieces[move.start];
-  state->pieces[move.start] = ' ';
+  state->pieces[move.start] = PIECE_EMPTY;
 }
 
 char piececolor(char piece) {
@@ -169,15 +178,16 @@ char validatemove(ChessState *board, ChessMove move) {
 
   switch (board->pieces[move.start]) {
   case PIECE_PAWN_WHITE:
-    if (move.end - move.start == 8 && board->pieces[move.end] == ' ') {
+    if (move.end - move.start == 8 &&
+        board->pieces[move.end] == PIECE_EMPTY) {
       return color;
     } else if (move.end - move.start == 16 && move.start / 8 == 1 &&
-               board->pieces[move.start + 8] == ' ' &&
-               board->pieces[move.end] == ' ') {
+               board->pieces[move.start + 8] == PIECE_EMPTY &&
+               board->pieces[move.end] == PIECE_EMPTY) {
       return color;
     } else if (((move.end - move.start == 7 && move.start % 8 != 0) ||
                 (move.end - move.start == 9 && move.start % 8 != 7)) &&
-               board->pieces[move.end] != ' ') {
+               board->pieces[move.end] != PIECE_EMPTY) {
       return color;
     } else {
       // also add en passant in the future
@@ -185,11 +195,16 @@ char validatemove(ChessState *board, ChessMove move) {
     }
     break;
   case PIECE_PAWN_BLACK:
-    if (move.end - move.start == -8 && board->pieces[move.end] == ' ') {
+    if (move.end - move.start == -8 &&
+        board->pieces[move.end] == PIECE_EMPTY) {
       return color;
     } else if (move.end - move.start == -16 && move.start / 8 == 6 &&
-               board->pieces[move.start - 8] == ' ' &&
-               board->pieces[move.end] == ' ') {
+               board->pieces[move.start - 8] == PIECE_EMPTY &&
+               board->pieces[move.end] == PIECE_EMPTY) {
+      return color;
+    } else if (((move.end - move.start == -9 && move.start % 8 != 0) ||
+                (move.end - move.start == -7 && move.start % 8 != 7)) &&
+               board->pieces[move.end] != PIECE_EMPTY) {
       return color;
     } else {
       // also add en passant in the future
@@ -215,7 +230,7 @@ char validatemove(ChessState *board, ChessMove move) {
 
     while (current_row != end_row || current_col != end_col) {
       int current_pos = current_row * 8 + current_col;
-      if (board->pieces[current_pos] != ' ') {
+      if (board->pieces[current_pos] != PIECE_EMPTY) {
         return -1;
       }
       current_row += row_step;
@@ -243,7 +258,7 @@ char validatemove(ChessState *board, ChessMove move) {
 
     while (current_row != end_row || current_col != end_col) {
       int current_pos = current_row * 8 + current_col;
-      if (board->pieces[current_pos] != ' ') {
+      if (board->pieces[current_pos] != PIECE_EMPTY) {
         return -1;
       }
       current_row += row_step;
@@ -257,8 +272,6 @@ char validatemove(ChessState *board, ChessMove move) {
     if (abs((move.end - move.start) / 8) <= 1 &&
         abs((move.end - move.start) % 8) <= 1 && move.end != move.start) {
       return color;
-    } else {
-      return -1;
     }
     break;
   case PIECE_KNIGHT_BLACK:
@@ -274,8 +287,6 @@ char validatemove(ChessState *board, ChessMove move) {
         (abs(end_row - start_row) == 1 && abs(end_col - start_col) == 2)) {
       // printf("yay\n");
       return color;
-    } else {
-      return -1;
     }
   } break;
   case PIECE_QUEEN_BLACK:
@@ -295,7 +306,7 @@ char validatemove(ChessState *board, ChessMove move) {
 
       while (current_row != end_row || current_col != end_col) {
         int current_pos = current_row * 8 + current_col;
-        if (board->pieces[current_pos] != ' ') {
+        if (board->pieces[current_pos] != PIECE_EMPTY) {
           return -1;
         }
         current_row += row_step;
@@ -303,8 +314,6 @@ char validatemove(ChessState *board, ChessMove move) {
       }
 
       return color;
-    } else {
-      return -1;
     }
   } break;
   default:
@@ -312,4 +321,64 @@ char validatemove(ChessState *board, ChessMove move) {
   }
 
   return -1;
+}
+
+ChessMove *list_valid_moves_without_king_check(ChessState *state, char color) {
+  ChessMove *move_list;
+  vec_init(&move_list);
+
+  foreach (range(0, 64), i) {
+    if (state->pieces[(uint64_t)i] != PIECE_EMPTY) {
+      foreach (range(0, 64), j) {
+        ChessMove move = {.start = (char)(uint64_t)i, .end = (char)(uint64_t)j};
+        if (validatemove(state, move) == color) {
+          vec_push(&move_list, &move);
+        }
+      }
+    }
+  }
+
+  return move_list;
+}
+
+// check if $color's king is in danger
+char checkking(ChessState *state, char color) {
+  ChessMove *valid_moves = list_valid_moves_without_king_check(state, !color);
+
+  char dangerous = 0;
+  foreach (vec_iter(valid_moves), _move) {
+    ChessMove *move = _move;
+    if (state->pieces[move->end] == PIECE_KING_WHITE + color) {
+      dangerous = 1;
+      break;
+    }
+  }
+  vec_free(&valid_moves);
+
+  return dangerous;
+}
+
+ChessMove *list_valid_moves(ChessState *state, char color) {
+  ChessMove *moves = list_valid_moves_without_king_check(state, color);
+  ChessMove *valid_moves;
+  vec_init(&valid_moves);
+  foreach (vec_iter(moves), _move) {
+    ChessMove *move = _move;
+    ChessState state_copy = *state;
+    makemove(&state_copy, *move);
+    if (!checkking(&state_copy, color)) {
+      vec_push(&valid_moves, move);
+    }
+  }
+  vec_free(&moves);
+  return valid_moves;
+}
+
+// check checkmate
+// check if $color is checkmated
+char check2mate(ChessState *state, char color) {
+  ChessMove *valid_moves = list_valid_moves(state, color);
+  char res = vec_len(&valid_moves) == 0;
+  vec_free(&valid_moves);
+  return res;
 }

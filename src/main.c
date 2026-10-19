@@ -1,44 +1,46 @@
+#define DYNARRAY_IMPLEMENTATION
+#define GENERATOR_IMPLEMENTATION
+#include "dynarray.h"
+#include "generator.h"
+
 #include "chess.h"
-#include "terminal.h"
+#include "engine.h"
+#include "input.h"
 #include <stdio.h>
-#include <string.h>
 
 int main() {
   ChessState board = initboard();
-  printboard(&board, (char)(2 << 6));
 
   char color = 0;
+  ChessMove move;
+  struct Engine engine;
+  engine_init(&engine);
   while (1) {
+    if (color == 1) {
+      engine.engine_color = 1;
+      engine.current_color = 1;
+      engine.current = board;
+      ChessMove move = engine_guess(&engine);
+      makemove(&board, move);
+      color = !color;
+      continue;
+    }
+    printboard(&board, color * COLOR_FLAG);
+
     printf("%s to move\n", color ? "Black" : "White");
-    char input[20];
-    get_input(input, 20);
-    printf("%s\n", input);
-    if (strcmp(input, "q") == 0 || strcmp(input, "quit") == 0 ||
-        strcmp(input, "exit") == 0) {
-      printf("exiting\n");
-      return 0;
-    }
 
-    ChessMove move;
-    char move_res = parsemove(&move, input);
-    if (move_res) {
-      if (move_res < 0) {
-        printf("invalid move input %i\n", move_res);
-        continue;
-      }
-      printboard(&board, (char)(color << 6) | move_res);
+    char move_res = getmove(&move, &board, color);
+    if (move_res < 0) {
+      printf("invalid move input %i\n", move_res);
       continue;
     }
 
-    // printf("s: %u e: %u\n", move.start, move.end);
-
-    if (validatemove(&board, move) != color) {
-      printf("invalid move\n");
+    if ((move_res = validatemove(&board, move)) != color) {
+      printf("invalid move %i\n", move_res);
       continue;
     }
+
     makemove(&board, move);
-
-    printboard(&board, (char)(2 << 6));
     color = !color;
   }
 
