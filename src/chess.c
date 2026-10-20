@@ -1,9 +1,10 @@
 #include "chess.h"
 #include "dynarray.h"
-#include "generator.h"
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#define VALID_MOVES 288
 
 char piece_from_alphabetic(char piece) {
   switch (piece) {
@@ -51,20 +52,20 @@ ChessState initboard() {
       'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p',
       'r', 'n', 'b', 'q', 'k', 'b', 'n', 'r',
       }};
-  foreach(range(0, 64), i) {
-    state.pieces[(size_t)i] = piece_from_alphabetic(state.pieces[(size_t)i]);
+  for (size_t i = 0; i < 64; i++) {
+    state.pieces[i] = piece_from_alphabetic(state.pieces[i]);
   }
   // clang-format on
   return state;
 }
 
-void printboard(ChessState *state, char from_pos) {
-  char color = from_pos >> 6;
+void printboard(ChessState *state, int from_pos) {
+  int color = from_pos >> 6;
   char cangoto[8] = "\0\0\0\0\0\0\0\0";
-  if (color == 0 || color == 1) {
+  if (from_pos >= 0) {
     for (char i = 0; i < 64; i++) {
-      if (validatemove(state, (ChessMove){.start = from_pos & 63, .end = i}) ==
-          color) {
+      if (validatemove(state, (ChessMove){.start = (char)(from_pos & 63),
+                                          .end = i}) == color) {
         cangoto[i / 8] |= 1 << (i % 8);
         // printf("cango %i %i", i / 8, i % 8);
       }
@@ -178,8 +179,7 @@ char validatemove(ChessState *board, ChessMove move) {
 
   switch (board->pieces[move.start]) {
   case PIECE_PAWN_WHITE:
-    if (move.end - move.start == 8 &&
-        board->pieces[move.end] == PIECE_EMPTY) {
+    if (move.end - move.start == 8 && board->pieces[move.end] == PIECE_EMPTY) {
       return color;
     } else if (move.end - move.start == 16 && move.start / 8 == 1 &&
                board->pieces[move.start + 8] == PIECE_EMPTY &&
@@ -195,8 +195,7 @@ char validatemove(ChessState *board, ChessMove move) {
     }
     break;
   case PIECE_PAWN_BLACK:
-    if (move.end - move.start == -8 &&
-        board->pieces[move.end] == PIECE_EMPTY) {
+    if (move.end - move.start == -8 && board->pieces[move.end] == PIECE_EMPTY) {
       return color;
     } else if (move.end - move.start == -16 && move.start / 8 == 6 &&
                board->pieces[move.start - 8] == PIECE_EMPTY &&
@@ -268,12 +267,17 @@ char validatemove(ChessState *board, ChessMove move) {
     return color;
   } break;
   case PIECE_KING_BLACK:
-  case PIECE_KING_WHITE:
-    if (abs((move.end - move.start) / 8) <= 1 &&
-        abs((move.end - move.start) % 8) <= 1 && move.end != move.start) {
+  case PIECE_KING_WHITE: {
+    int start_row = move.start / 8;
+    int start_col = move.start % 8;
+    int end_row = move.end / 8;
+    int end_col = move.end % 8;
+
+    if (abs(end_row - start_row) <= 1 && abs(end_col - start_col) <= 1 &&
+        move.end != move.start) {
       return color;
     }
-    break;
+  } break;
   case PIECE_KNIGHT_BLACK:
   case PIECE_KNIGHT_WHITE: {
     int start_row = (int)move.start / 8;
@@ -327,10 +331,10 @@ ChessMove *list_valid_moves_without_king_check(ChessState *state, char color) {
   ChessMove *move_list;
   vec_init(&move_list);
 
-  foreach (range(0, 64), i) {
-    if (state->pieces[(uint64_t)i] != PIECE_EMPTY) {
-      foreach (range(0, 64), j) {
-        ChessMove move = {.start = (char)(uint64_t)i, .end = (char)(uint64_t)j};
+  for (size_t i = 0; i < 64; i++) {
+    if (state->pieces[i] != PIECE_EMPTY) {
+      for (size_t j = 0; j < 64; j++) {
+        ChessMove move = {.start = (char)i, .end = (char)j};
         if (validatemove(state, move) == color) {
           vec_push(&move_list, &move);
         }
@@ -343,27 +347,46 @@ ChessMove *list_valid_moves_without_king_check(ChessState *state, char color) {
 
 // check if $color's king is in danger
 char checkking(ChessState *state, char color) {
-  ChessMove *valid_moves = list_valid_moves_without_king_check(state, !color);
+  int king_square = -1;
 
-  char dangerous = 0;
-  foreach (vec_iter(valid_moves), _move) {
-    ChessMove *move = _move;
-    if (state->pieces[move->end] == PIECE_KING_WHITE + color) {
-      dangerous = 1;
+  for (int i = 0; i < 64; i++) {
+    if (state->pieces[i] == PIECE_KING_WHITE + color) {
+      king_square = i;
       break;
     }
   }
-  vec_free(&valid_moves);
 
-  return dangerous;
+  if (king_square < 0) {
+    return 0;
+  }
+
+  char attacker_color = !color;
+
+  for (int i = 0; i < 64; i++) {
+    if (piececolor(state->pieces[i]) != attacker_color) {
+      continue;
+    }
+
+    ChessMove attack = {
+        .start = (char)i,
+        .end = (char)king_square,
+    };
+
+    if (validatemove(state, attack) == attacker_color) {
+      return 1;
+    }
+  }
+
+  return 0;
 }
 
 ChessMove *list_valid_moves(ChessState *state, char color) {
   ChessMove *moves = list_valid_moves_without_king_check(state, color);
   ChessMove *valid_moves;
-  vec_init(&valid_moves);
-  foreach (vec_iter(moves), _move) {
-    ChessMove *move = _move;
+  vec_init_len(&valid_moves, vec_len(&moves));
+  size_t move_count = vec_len(&moves);
+  for (size_t i = 0; i < move_count; i++) {
+    ChessMove *move = &moves[i];
     ChessState state_copy = *state;
     makemove(&state_copy, *move);
     if (!checkking(&state_copy, color)) {

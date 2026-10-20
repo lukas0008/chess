@@ -3,7 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define vec_init(vec) _vec_init((void *)(vec), sizeof(**vec))
+#define vec_init(vec) _vec_init((void *)(vec), sizeof(**vec), 4)
+#define vec_init_len(vec, len) _vec_init((void *)(vec), sizeof(**vec), len)
 #define vec_push(vec, item) _vec_push((void *)(vec), item)
 #define vec_push_many(vec, items, n) _vec_push_many((void *)(vec), items, n)
 #define vec_len(vec) _vec_len((void *)(vec))
@@ -12,7 +13,7 @@
 #define vec_reset(vec) _vec_reset((void *)(vec))
 #define vec_free(vec) _vec_free((void *)(vec))
 
-void _vec_init(void **vec, size_t type_size);
+void _vec_init(void **vec, size_t type_size, size_t len);
 void _vec_push(void **vec, void *item);
 void _vec_push_many(void **vec, void *items, size_t count);
 void _vec_pop(void **vec, void *out);
@@ -62,10 +63,10 @@ void **vec_iter(void *vec) {
   return generator_create(vec_iter_impl, iter);
 }
 
-void _vec_init(void **vec, size_t type_size) {
+void _vec_init(void **vec, size_t type_size, size_t len) {
   struct arr_header *header =
-      (struct arr_header *)malloc(sizeof(struct arr_header));
-  header->size = 0;
+      (struct arr_header *)malloc(sizeof(struct arr_header) + type_size * len);
+  header->size = len;
   header->type_size = type_size;
   header->length = 0;
   *vec = header + 1;

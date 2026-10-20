@@ -32,7 +32,7 @@ typedef struct ChessMove {
 
 char piece_from_alphabetic(char piece);
 ChessState initboard();
-void printboard(ChessState *state, char show_moves_from);
+void printboard(ChessState *state, int show_moves_from);
 void makemove(ChessState *state, ChessMove move);
 char validatemove(ChessState *state, ChessMove move);
 ChessMove *list_valid_moves(ChessState *state, char color);

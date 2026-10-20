@@ -25,7 +25,7 @@ int main() {
       color = !color;
       continue;
     }
-    printboard(&board, color * COLOR_FLAG);
+    printboard(&board, -1);
 
     printf("%s to move\n", color ? "Black" : "White");
 
