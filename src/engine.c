@@ -1,3 +1,5 @@
+#define SEARCH_DEPTH 4
+
 #include "engine.h"
 #include "chess.h"
 #include "dynarray.h"
@@ -124,7 +126,6 @@ static int search(struct Engine *engine, int depth, int alpha, int beta) {
   return best_score;
 }
 
-#define SEARCH_DEPTH 4
 int engine_score(struct Engine *engine) {
   return search(engine, SEARCH_DEPTH, INT32_MIN, INT32_MAX);
 }

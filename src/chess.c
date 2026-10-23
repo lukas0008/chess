@@ -1,6 +1,7 @@
 #include "chess.h"
 #include "dynarray.h"
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -325,22 +326,166 @@ char validatemove(ChessState *board, ChessMove move) {
   return -1;
 }
 
+static uint64_t target_if_available(const ChessState *state, char color,
+                                    int row, int column) {
+  if ((unsigned)row >= 8 || (unsigned)column >= 8) {
+    return 0;
+  }
+
+  int square = row * 8 + column;
+  if (piececolor(state->pieces[square]) == color) {
+    return 0;
+  }
+
+  return UINT64_C(1) << square;
+}
+
+static uint64_t ray_targets(const ChessState *state, char color, int start,
+                            int row_step, int column_step) {
+  uint64_t targets = 0;
+  int row = start / 8 + row_step;
+  int column = start % 8 + column_step;
+
+  while ((unsigned)row < 8 && (unsigned)column < 8) {
+    int square = row * 8 + column;
+    char target = state->pieces[square];
+
+    if (target == PIECE_EMPTY) {
+      targets |= UINT64_C(1) << square;
+    } else {
+      if (piececolor(target) != color) {
+        targets |= UINT64_C(1) << square;
+      }
+      break;
+    }
+
+    row += row_step;
+    column += column_step;
+  }
+
+  return targets;
+}
+
 int list_valid_moves_without_king_check(ChessState *state, char color,
                                         ChessMove moves[VALID_MOVES]) {
-  int k = 0;
+  static const int knight_offsets[8][2] = {
+      {-2, -1}, {-2, 1}, {-1, -2}, {-1, 2},
+      {1, -2},  {1, 2},  {2, -1},  {2, 1},
+  };
+  static const int bishop_directions[4][2] = {
+      {-1, -1}, {-1, 1}, {1, -1}, {1, 1},
+  };
+  static const int rook_directions[4][2] = {
+      {-1, 0}, {1, 0}, {0, -1}, {0, 1},
+  };
 
-  for (size_t i = 0; i < 64; i++) {
-    if (state->pieces[i] != PIECE_EMPTY) {
-      for (size_t j = 0; j < 64; j++) {
-        ChessMove move = {.start = (char)i, .end = (char)j};
-        if (validatemove(state, move) == color) {
-          moves[k++] = move;
+  int move_count = 0;
+
+  for (int start = 0; start < 64; ++start) {
+    char piece = state->pieces[start];
+    if (piece == PIECE_EMPTY || piececolor(piece) != color) {
+      continue;
+    }
+
+    int row = start / 8;
+    int column = start % 8;
+    uint64_t targets = 0;
+
+    switch (piece) {
+    case PIECE_PAWN_WHITE:
+    case PIECE_PAWN_BLACK: {
+      int direction = piece == PIECE_PAWN_WHITE ? 1 : -1;
+      int starting_row = piece == PIECE_PAWN_WHITE ? 1 : 6;
+      int next_row = row + direction;
+
+      if ((unsigned)next_row < 8) {
+        int forward = next_row * 8 + column;
+        if (state->pieces[forward] == PIECE_EMPTY) {
+          targets |= UINT64_C(1) << forward;
+
+          int double_row = row + 2 * direction;
+          int double_forward = double_row * 8 + column;
+          if (row == starting_row &&
+              state->pieces[double_forward] == PIECE_EMPTY) {
+            targets |= UINT64_C(1) << double_forward;
+          }
         }
+
+        for (int column_step = -1; column_step <= 1; column_step += 2) {
+          int capture_column = column + column_step;
+          if ((unsigned)capture_column >= 8) {
+            continue;
+          }
+
+          int capture = next_row * 8 + capture_column;
+          if (state->pieces[capture] != PIECE_EMPTY &&
+              piececolor(state->pieces[capture]) != color) {
+            targets |= UINT64_C(1) << capture;
+          }
+        }
+      }
+      break;
+    }
+
+    case PIECE_KNIGHT_WHITE:
+    case PIECE_KNIGHT_BLACK:
+      for (int i = 0; i < 8; ++i) {
+        targets |= target_if_available(state, color,
+                                       row + knight_offsets[i][0],
+                                       column + knight_offsets[i][1]);
+      }
+      break;
+
+    case PIECE_KING_WHITE:
+    case PIECE_KING_BLACK:
+      for (int row_step = -1; row_step <= 1; ++row_step) {
+        for (int column_step = -1; column_step <= 1; ++column_step) {
+          if (row_step != 0 || column_step != 0) {
+            targets |= target_if_available(
+                state, color, row + row_step, column + column_step);
+          }
+        }
+      }
+      break;
+
+    case PIECE_BISHOP_WHITE:
+    case PIECE_BISHOP_BLACK:
+      for (int i = 0; i < 4; ++i) {
+        targets |= ray_targets(state, color, start,
+                               bishop_directions[i][0],
+                               bishop_directions[i][1]);
+      }
+      break;
+
+    case PIECE_ROOK_WHITE:
+    case PIECE_ROOK_BLACK:
+      for (int i = 0; i < 4; ++i) {
+        targets |= ray_targets(state, color, start, rook_directions[i][0],
+                               rook_directions[i][1]);
+      }
+      break;
+
+    case PIECE_QUEEN_WHITE:
+    case PIECE_QUEEN_BLACK:
+      for (int i = 0; i < 4; ++i) {
+        targets |= ray_targets(state, color, start,
+                               bishop_directions[i][0],
+                               bishop_directions[i][1]);
+        targets |= ray_targets(state, color, start, rook_directions[i][0],
+                               rook_directions[i][1]);
+      }
+      break;
+    }
+
+    for (int end = 0; end < 64; ++end) {
+      if (targets & (UINT64_C(1) << end)) {
+        moves[move_count++] =
+            (ChessMove){.start = (char)start, .end = (char)end};
       }
     }
   }
 
-  return k;
+  return move_count;
 }
 
 // check if $color's king is in danger
