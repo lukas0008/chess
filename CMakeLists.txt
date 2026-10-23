@@ -18,3 +18,10 @@ add_executable(chess
     src/hashmap.c
 )
 target_include_directories(chess PRIVATE include/)
+
+add_executable(bench
+    src/benchmark.c
+    src/chess.c
+    src/engine.c
+)
+target_include_directories(bench PRIVATE include/)

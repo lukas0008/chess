@@ -73,11 +73,12 @@ static int search(struct Engine *engine, int depth, int alpha, int beta) {
     return ((int)engine->engine_color * -2 + 1) * immediate_score;
   }
 
-  ChessMove *moves = list_valid_moves(&engine->current, engine->current_color);
+  ChessMove moves[VALID_MOVES];
+  int move_count =
+      list_valid_moves(&engine->current, engine->current_color, moves);
 
-  if (vec_len(&moves) == 0) {
+  if (move_count == 0) {
     int in_check = checkking(&engine->current, engine->current_color);
-    vec_free(&moves);
 
     if (!in_check) {
       return 0;
@@ -90,12 +91,11 @@ static int search(struct Engine *engine, int depth, int alpha, int beta) {
   int maximizing = engine->current_color == engine->engine_color;
   int best_score = maximizing ? INT32_MIN : INT32_MAX;
 
-  size_t move_count = vec_len(&moves);
   for (size_t i = 0; i < move_count; i++) {
-    ChessMove *move = &moves[i];
+    ChessMove move = moves[i];
     struct Engine child = *engine;
 
-    makemove(&child.current, *move);
+    makemove(&child.current, move);
     child.current_color = !child.current_color;
 
     int score = search(&child, depth - 1, alpha, beta);
@@ -121,7 +121,6 @@ static int search(struct Engine *engine, int depth, int alpha, int beta) {
     }
   }
 
-  vec_free(&moves);
   return best_score;
 }
 
@@ -131,12 +130,12 @@ int engine_score(struct Engine *engine) {
 }
 
 ChessMove engine_guess(struct Engine *engine) {
-  ChessMove *moves = list_valid_moves(&engine->current, engine->current_color);
+  ChessMove moves[VALID_MOVES];
+  int move_count =
+      list_valid_moves(&engine->current, engine->current_color, moves);
 
   ChessMove bestMove;
   int best_score = INT32_MIN;
-
-  size_t move_count = vec_len(&moves);
   for (size_t i = 0; i < move_count; i++) {
     ChessMove *move = &moves[i];
     struct Engine engine_copy = *engine;
@@ -149,8 +148,6 @@ ChessMove engine_guess(struct Engine *engine) {
       bestMove = *move;
     }
   }
-
-  vec_free(&moves);
 
   return bestMove;
 }

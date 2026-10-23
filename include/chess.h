@@ -17,6 +17,8 @@
 
 #define COLOR_FLAG (1 << 6)
 
+#define VALID_MOVES 288
+
 #ifndef CHESS_FLIP_DISPLAY_COLORS
 #define CHESS_FLIP_DISPLAY_COLORS 1
 #endif
@@ -35,7 +37,7 @@ ChessState initboard();
 void printboard(ChessState *state, int show_moves_from);
 void makemove(ChessState *state, ChessMove move);
 char validatemove(ChessState *state, ChessMove move);
-ChessMove *list_valid_moves(ChessState *state, char color);
+int list_valid_moves(ChessState *state, char color, ChessMove *moves);
 char check2mate(ChessState *state, char color);
 char checkking(ChessState *state, char color);
 

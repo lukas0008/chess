@@ -4,8 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define VALID_MOVES 288
-
 char piece_from_alphabetic(char piece) {
   switch (piece) {
   case 'B':
@@ -327,22 +325,22 @@ char validatemove(ChessState *board, ChessMove move) {
   return -1;
 }
 
-ChessMove *list_valid_moves_without_king_check(ChessState *state, char color) {
-  ChessMove *move_list;
-  vec_init(&move_list);
+int list_valid_moves_without_king_check(ChessState *state, char color,
+                                        ChessMove moves[VALID_MOVES]) {
+  int k = 0;
 
   for (size_t i = 0; i < 64; i++) {
     if (state->pieces[i] != PIECE_EMPTY) {
       for (size_t j = 0; j < 64; j++) {
         ChessMove move = {.start = (char)i, .end = (char)j};
         if (validatemove(state, move) == color) {
-          vec_push(&move_list, &move);
+          moves[k++] = move;
         }
       }
     }
   }
 
-  return move_list;
+  return k;
 }
 
 // check if $color's king is in danger
@@ -380,28 +378,27 @@ char checkking(ChessState *state, char color) {
   return 0;
 }
 
-ChessMove *list_valid_moves(ChessState *state, char color) {
-  ChessMove *moves = list_valid_moves_without_king_check(state, color);
-  ChessMove *valid_moves;
-  vec_init_len(&valid_moves, vec_len(&moves));
-  size_t move_count = vec_len(&moves);
+int list_valid_moves(ChessState *state, char color,
+                     ChessMove moves[VALID_MOVES]) {
+  ChessMove interim_moves[VALID_MOVES] = {};
+  int move_count =
+      list_valid_moves_without_king_check(state, color, interim_moves);
+  int j = 0;
   for (size_t i = 0; i < move_count; i++) {
-    ChessMove *move = &moves[i];
+    ChessMove *move = &interim_moves[i];
     ChessState state_copy = *state;
     makemove(&state_copy, *move);
     if (!checkking(&state_copy, color)) {
-      vec_push(&valid_moves, move);
+      moves[j++] = *move;
     }
   }
-  vec_free(&moves);
-  return valid_moves;
+  return j;
 }
 
 // check checkmate
 // check if $color is checkmated
 char check2mate(ChessState *state, char color) {
-  ChessMove *valid_moves = list_valid_moves(state, color);
-  char res = vec_len(&valid_moves) == 0;
-  vec_free(&valid_moves);
-  return res;
+  ChessMove valid_moves[VALID_MOVES] = {};
+  int len = list_valid_moves(state, color, valid_moves);
+  return len == 0;
 }
